@@ -28,7 +28,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className={inter.className}>
         <div className="p-4 border-b font-bold">
-          Medium Website
+          User Cards
           </div>
         {children}
       </body>

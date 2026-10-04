@@ -170,3 +170,235 @@ Browser receives HTML
 ```
 
 ### Therefore: React can generate the UI in the browser, while Next.js can generate the HTML on the server before sending it to the browser. 
+
+# Next.js Learning – Prisma ORM and Database Integration
+
+## Prisma ORM with Next.js
+
+Prisma is a type-safe ORM (Object-Relational Mapper) that allows us to interact with databases using TypeScript or JavaScript instead of writing raw SQL queries.
+
+In Next.js, Prisma can be used inside server-side code and API routes to perform database operations.
+
+### Installing Prisma 7
+
+```bash
+npm install prisma@7
+npm install @prisma/client@7
+npm install @prisma/adapter-pg pg
+```
+
+Initialize Prisma:
+
+```bash
+npx prisma init
+```
+
+## Defining a Prisma Model
+
+Models are defined in `prisma/schema.prisma`. They describe the structure of our database tables.
+
+```prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model users {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+}
+```
+
+Here:
+- `@id` defines the primary key.
+- `@default(autoincrement())` automatically generates IDs.
+- `@unique` ensures that duplicate values are not allowed.
+- `String` and `Int` define field types.
+
+## Prisma Migrate vs Prisma Generate
+
+### Prisma Migrate
+
+Updates the actual database structure according to the Prisma schema.
+
+```bash
+npx prisma migrate dev --name init
+```
+
+It creates SQL migration files and applies the changes to the database.
+
+### Prisma Generate
+
+Generates the type-safe Prisma Client based on the models defined in `schema.prisma`.
+
+```bash
+npx prisma generate
+```
+
+The generated client provides methods such as:
+
+```ts
+prisma.users.create()
+prisma.users.findMany()
+prisma.users.findUnique()
+prisma.users.update()
+prisma.users.delete()
+```
+
+**Difference:** Migrate updates the database, whereas Generate updates the Prisma Client used in our application.
+
+## Connecting Prisma to PostgreSQL
+
+Prisma 7 uses a driver adapter to establish a database connection.
+
+```ts
+import { PrismaClient } from "../../../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const prisma = new PrismaClient({ adapter });
+```
+
+The database connection string is stored in `.env` and must not be committed to GitHub.
+
+## Creating API Routes in Next.js
+
+Next.js App Router supports API routes through `route.ts` files.
+
+For example:
+
+```text
+app/
+└── api/
+    └── user/
+        └── route.ts
+```
+
+This creates the API endpoint `/api/user`.
+
+We can export HTTP methods such as `GET`, `POST`, `PUT`, `PATCH` and `DELETE`.
+
+### POST – Create a User
+
+```ts
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  const user = await prisma.users.create({
+    data: {
+      name: body.name,
+      email: body.email,
+      password: hashedPassword,
+    },
+  });
+
+  return Response.json(
+    { message: "User created successfully", data: user },
+    { status: 201 }
+  );
+}
+```
+
+Here, `hashedPassword` represents the password after secure hashing, which must be performed before saving it.
+
+### GET – Fetch Users
+
+```ts
+export async function GET() {
+  const users = await prisma.users.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  return Response.json(users);
+}
+```
+
+`findMany()` returns an array of database records. Using `select` ensures that sensitive fields such as passwords are not returned.
+
+## Handling Forms in Next.js
+
+Client Components can use React state and event handlers to handle user input.
+
+```tsx
+"use client";
+
+import axios from "axios";
+import { useRouter } from "next/navigation";
+
+const router = useRouter();
+
+async function handleSubmit(
+  e: React.FormEvent<HTMLFormElement>
+) {
+  e.preventDefault();
+
+  await axios.post("/api/user", {
+    name,
+    email,
+    password,
+  });
+
+  router.push("/");
+}
+```
+
+- `e.preventDefault()` prevents the default form submission.
+- `axios.post()` sends the form data to the API.
+- `await` waits for the API request to complete.
+- `router.push("/")` navigates to the home page after a successful request.
+
+## Fetching Data in Server Components
+
+Next.js App Router pages are Server Components by default.
+
+We can use `async/await` to fetch data before rendering the page.
+
+```tsx
+import axios from "axios";
+
+async function getUserData() {
+  const res = await axios.get("http://localhost:3000/api/user");
+  return res.data;
+}
+
+export default async function Home() {
+  const users = await getUserData();
+
+  return (
+    <div className="flex flex-wrap gap-4 p-8">
+      {users.map((user: {
+        id: number;
+        name: string;
+        email: string;
+      }) => (
+        <div
+          key={user.id}
+          className="w-64 rounded border p-8"
+        >
+          <h2>Name: {user.name}</h2>
+          <p>Email: {user.email}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+Since `findMany()` returns an array, we use `map()` to render one card for each user.
+
+The Tailwind classes `flex`, `flex-wrap` and `gap-4` arrange the cards from left to right and wrap them onto the next row when necessary.
+
+**Note:** In a real Next.js Server Component, we can also query Prisma directly rather than making an HTTP request to our own API.

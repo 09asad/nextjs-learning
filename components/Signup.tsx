@@ -2,20 +2,23 @@
 
 import axios from "axios";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    console.log({
+    await axios.post("http://localhost:3000/api/user", {
       name,
       email,
       password,
     });
+    router.push("/");
   }
 
   return (
@@ -58,13 +61,7 @@ export function Signup() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button onClick={() => {
-            axios.post("http://localhost:3000/api/user", {
-                name,
-                email,
-                password
-            })
-          }}
+          <button
             type="submit"
             className="mt-6 w-full rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 cursor-pointer"
           >
