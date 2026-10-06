@@ -1,8 +1,8 @@
 "use client";
 
-import axios from "axios";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signup } from "@/app/actions/signup";
 
 export function Signup() {
   const [name, setName] = useState("");
@@ -13,11 +13,7 @@ export function Signup() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    await axios.post("http://localhost:3000/api/user", {
-      name,
-      email,
-      password,
-    });
+    await signup(name, email, password);      // server actions... NO NEED TO POST an API request to add data into DB
     router.push("/");
   }
 

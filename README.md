@@ -410,21 +410,22 @@ The Tailwind classes `flex`, `flex-wrap` and `gap-4` arrange the cards from left
 ## Why Prisma Singleton?
 In Next.js development, Fast Refresh can cause modules to reload multiple times.
 If we create Prisma like this:
-
-  const prisma = new PrismaClient();
-
+```tsx
+const prisma = new PrismaClient();
+```
 every time the module is recreated, another PrismaClient instance may be created.
 
+```text
   PrismaClient #1
   PrismaClient #2
   PrismaClient #3
   PrismaClient #4
   ...
-
+```
 This is unnecessary because every PrismaClient can maintain its own database resources/connections.
 
 A singleton pattern makes sure that we reuse the same PrismaClient instance instead of continuously creating new ones.
-
+```text
   Without Singleton:
 
   route.ts  → Prisma #1
@@ -438,28 +439,33 @@ A singleton pattern makes sure that we reuse the same PrismaClient instance inst
   route.ts  ─┐
             ├──→ Same Prisma #1
   page.tsx  ─┘
+```
 
 ## Prisma Singleton Setup
+```text
 Create:
   lib/
   └── prisma.ts
+  ```
 
 ## Saving Prisma Globally
-
+```tsx
   if (process.env.NODE_ENV !== "production") {
     globalThis.prisma = prisma;
   }
+```
 
 ## Why Multiple PrismaClients Are a Problem?
 
 Multiple PrismaClients don't necessarily break the application immediately.
 However, each PrismaClient can maintain its own database resources/connections.
 For example:
-
+```text
   PrismaClient #1 → DB resources
   PrismaClient #2 → DB resources
   PrismaClient #3 → DB resources
   PrismaClient #4 → DB resources
+```
 
 This can cause:
 - Unnecessary database connections
@@ -470,9 +476,194 @@ This can cause:
 - Potential instability in larger applications
 
 So we prefer:
-
+```text
   One shared PrismaClient
           ↓
   Reuse it
           ↓
   Better resource management
+```
+
+# Next.js Server Actions
+
+## What are Server Actions?
+
+Server Actions are asynchronous server-side functions in Next.js that can be called from UI components.
+
+They allow us to perform server-side operations such as:
+
+Creating users
+Login
+Updating data
+Deleting data
+Database operations
+Form submissions
+
+without manually creating an API endpoint and making an axios/fetch request to it.
+
+A Server Action is marked with:
+```text
+"use server";
+```
+## Traditional API Route Approach
+
+Previously, signup could work like this:
+```text
+Signup Component
+      ↓
+axios.post("/api/user", credentials)
+      ↓
+app/api/user/route.ts
+      ↓
+POST()
+      ↓
+req.json()
+      ↓
+body
+      ↓
+Prisma
+      ↓
+Database
+```
+
+route.ts
+```tsx
+import { NextRequest } from "next/server";
+import prisma from "@/lib/prisma";
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  const user = await prisma.users.create({
+    data: {
+      name: body.name,
+      email: body.email,
+      password: body.password,
+    },
+  });
+
+  return Response.json({
+    message: "You are signed up!",
+    data: user,
+  });
+}
+```
+Client
+```tsx
+await axios.post("/api/user", {
+  name,
+  email,
+  password,
+});
+```
+
+Here, we manually handle the HTTP request.
+
+## Server Action Approach
+
+With Server Actions, we can remove the API route for this operation.
+
+```text
+Signup Component
+      ↓
+signup()
+      ↓
+Server Action
+      ↓
+Prisma
+      ↓
+Database
+```
+
+Next.js handles the communication between the browser and the server internally.
+
+We don't manually write:
+```tsx
+axios.post(...)
+```
+or:
+```tsx
+req.json()
+```
+for the Server Action.
+
+## Creating a Server Action
+A common structure is:
+```text
+actions/
+└── signup.ts
+```
+
+actions/signup.ts
+```tsx
+"use server";
+
+import prisma from "@/lib/prisma";
+
+export async function signup(
+  name: string,
+  email: string,
+  password: string
+) {
+  const user = await prisma.users.create({
+    data: {
+      name,
+      email,
+      password,
+    },
+  });
+
+  return user;
+}
+```
+The "use server" directive tells Next.js that the function is a Server Action and should execute on the server.
+
+## Calling a Server Action
+
+From a component:
+```tsx
+import { signup } from "@/actions/signup";
+
+await signup(name, email, password);
+```
+The data:
+```text
+name
+email
+password
+```
+is passed as function arguments.
+So instead of:
+```text
+req.json()
+```
+we can directly receive:
+```tsx
+export async function signup(
+  name: string,
+  email: string,
+  password: string
+) {
+  // ...
+}
+```
+
+## Do We Still Need route.ts?
+If we are using a Server Action for signup:
+```text
+Signup Component
+      ↓
+signup Server Action
+      ↓
+Prisma
+      ↓
+Database
+```
+then we do not need the POST function in route.ts for signup.
+We can remove:
+```tsx
+export async function POST(req: NextRequest) {
+  ...
+}
+```
+because the Server Action is now handling the signup operation.

@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-export default async function Home() {
+export default async function Home() {            // Server Component
   const users = await prisma.users.findMany();
 
   return (
