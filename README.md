@@ -402,3 +402,77 @@ Since `findMany()` returns an array, we use `map()` to render one card for each 
 The Tailwind classes `flex`, `flex-wrap` and `gap-4` arrange the cards from left to right and wrap them onto the next row when necessary.
 
 **Note:** In a real Next.js Server Component, we can also query Prisma directly rather than making an HTTP request to our own API.
+
+
+
+# Prisma Singleton in Next.js
+
+## Why Prisma Singleton?
+In Next.js development, Fast Refresh can cause modules to reload multiple times.
+If we create Prisma like this:
+
+  const prisma = new PrismaClient();
+
+every time the module is recreated, another PrismaClient instance may be created.
+
+  PrismaClient #1
+  PrismaClient #2
+  PrismaClient #3
+  PrismaClient #4
+  ...
+
+This is unnecessary because every PrismaClient can maintain its own database resources/connections.
+
+A singleton pattern makes sure that we reuse the same PrismaClient instance instead of continuously creating new ones.
+
+  Without Singleton:
+
+  route.ts  → Prisma #1
+  page.tsx  → Prisma #2
+  Fast Refresh → Prisma #3
+  Fast Refresh → Prisma #4
+
+
+  With Singleton:
+
+  route.ts  ─┐
+            ├──→ Same Prisma #1
+  page.tsx  ─┘
+
+## Prisma Singleton Setup
+Create:
+  lib/
+  └── prisma.ts
+
+## Saving Prisma Globally
+
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.prisma = prisma;
+  }
+
+## Why Multiple PrismaClients Are a Problem?
+
+Multiple PrismaClients don't necessarily break the application immediately.
+However, each PrismaClient can maintain its own database resources/connections.
+For example:
+
+  PrismaClient #1 → DB resources
+  PrismaClient #2 → DB resources
+  PrismaClient #3 → DB resources
+  PrismaClient #4 → DB resources
+
+This can cause:
+- Unnecessary database connections
+- Higher resource usage
+- Higher memory usage
+- Database connection-limit problems
+- Prisma warnings during development
+- Potential instability in larger applications
+
+So we prefer:
+
+  One shared PrismaClient
+          ↓
+  Reuse it
+          ↓
+  Better resource management

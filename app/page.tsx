@@ -1,19 +1,14 @@
-import axios from "axios";
-
-async function getUserData() {
-  const res = await axios.get("http://localhost:3000/api/user");
-  return res.data;
-}
+import prisma from "@/lib/prisma";
 
 export default async function Home() {
-  const userDetails = await getUserData();
+  const users = await prisma.users.findMany();
 
   return (
     <div className="flex flex-wrap gap-4 p-8">
-      {userDetails.map((user: any) => (
+      {users.map((user) => (
         <div
           key={user.id}
-          className="border p-8 rounded w-64"
+          className="w-64 rounded-lg border p-8"
         >
           <div>Name: {user.name}</div>
           <div>Email: {user.email}</div>
